@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundScape - 聲境漫遊</title>
+  <!-- 引入 QR Code 產生器套件 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #1e1e24;
+      --card-bg: rgba(43, 43, 54, 0.85);
+      --accent-color: #2ec4b6;
+      --stop-color: #e74c3c;
+      --text-color: #f0f0f5;
+      --subtext-color: #ccc;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('pic/music.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      transition: background-image 0.5s ease-in-out;
+      min-height: 100vh;
+    }
+
+    /* 40Hz 正弦波視覺脈衝圖層 */
+    #pulseOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      font-size: 32px;
+      letter-spacing: 1px;
+    }
+
+    .master-controls, .share-section {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .main-btn {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    .main-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .main-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+
+    .presets, .timer-control, .light-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .preset-btn, .toggle-btn, .action-btn {
+      background: rgba(59, 59, 74, 0.8);
+      color: var(--text-color);
+      border: 1px solid #666;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn {
+      background: var(--accent-color);
+      border: none;
+      font-weight: bold;
+    }
+
+    .preset-btn:hover, .toggle-btn:hover, .action-btn:hover {
+      opacity: 0.9;
+    }
+
+    .toggle-btn.active {
+      background: #f39c12;
+      color: #fff;
+      border-color: #f39c12;
+      box-shadow: 0 0 8px rgba(243, 156, 18, 0.6);
+    }
+
+    select, input[type="text"] {
+      background: #3b3b4a;
+      color: white;
+      border: 1px solid #555;
+      padding: 8px 10px;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    .share-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .row-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .row-group input {
+      flex: 1;
+    }
+
+    #qrcode-box {
+      margin-top: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      display: inline-block;
+      align-self: center;
+    }
+
+    .message-display {
+      background: rgba(46, 196, 182, 0.2);
+      border-left: 4px solid var(--accent-color);
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .category-section {
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .category-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .category-hint {
+      font-size: 12px;
+      color: var(--subtext-color);
+      font-weight: normal;
+    }
+
+    .track-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 15px;
+    }
+
+    .track-card {
+      background: rgba(53, 53, 67, 0.8);
+      padding: 12px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .track-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: bold;
+    }
+
+    .volume-slider {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .volume-slider span {
+      white-space: nowrap;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent-color);
+    }
+  </style>
+</head>
+<body>
+
+<!-- 40Hz 脈衝覆蓋圖層 -->
+<div id="pulseOverlay"></div>
+
+<div class="container">
+  <h1>SoundScape</h1>
+
+  <!-- 讀取到的留言顯示區 -->
+  <div id="messageDisplay" class="message-display">
+    <strong>💌 收到音樂留言：</strong>
+    <p id="msgText" style="margin: 5px 0 0 0;"></p>
+  </div>
+
+  <!-- 主控台 & 定時 & 預設 & 視覺脈衝開關 -->
+  <div class="master-controls">
+    <button id="masterPlayBtn" class="main-btn">
+      <svg id="btnIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <span id="btnText">Play</span>
+    </button>
+    
+    <div class="timer-control">
+      <label for="timerSelect">倒數計時：</label>
+      <select id="timerSelect">
+        <option value="0">不開啟</option>
+        <option value="15">15 分鐘</option>
+        <option value="30">30 分鐘</option>
+        <option value="45">45 分鐘</option>
+        <option value="60">60 分鐘</option>
+      </select>
+      <span id="timerCountdown" style="font-size:14px; color:#2ec4b6;"></span>
+    </div>
+
+    <div class="light-control">
+      <button id="pulseBtn" class="toggle-btn">💡 40Hz 視覺脈衝：關閉</button>
+    </div>
+
+    <div class="presets">
+      <span>情境預設：</span>
+      <button class="preset-btn" onclick="applyPreset('focus')">高效專注</button>
+      <button class="preset-btn" onclick="applyPreset('sleep')">深度助眠</button>
+      <button class="preset-btn" onclick="applyPreset('relax')">森林冥想</button>
+    </div>
+  </div>
+
+  <!-- 類別 1: 腦波 -->
+  <div class="category-section">
+    <div class="category-title">
+      類別 1：腦波 (Binaural Beats)
+      <span class="category-hint">只能單選 1（建議配戴耳機）</span>
+    </div>
+    <div class="track-grid">
+      <div class="track-card">
+        <div class="track-header">
+          <input type="radio" name="brainwave" id="wave_none" value="none" checked>
+          <label for="wave_none">不播放</label>
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="radio" name="brainwave" id="wave_alpha" value="alpha">
+          <label for="wave_alpha">α 波 (Relax 10Hz)</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_alpha" min="0" max="1" step="0.01" value="0.5">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="radio" name="brainwave" id="wave_theta" value="theta">
+          <label for="wave_theta">θ 波 (Sleep 6Hz)</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_theta" min="0" max="1" step="0.01" value="0.5">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="radio" name="brainwave" id="wave_gamma" value="gamma">
+          <label for="wave_gamma">γ 波 (Cognition 40Hz)</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_gamma" min="0" max="1" step="0.01" value="0.5">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 類別 2: 環境音 (複選) -->
+  <div class="category-section">
+    <div class="category-title">
+      類別 2：環境音
+      <span class="category-hint">可複選或全選</span>
+    </div>
+    <div class="track-grid">
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="env_wind" data-file="audio/WIND.mp3">
+          <label for="env_wind">風聲</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_env_wind" min="0" max="1" step="0.01" value="0.7">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="env_bird" data-file="audio/bird.mp3">
+          <label for="env_bird">鳥叫聲</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_env_bird" min="0" max="1" step="0.01" value="0.7">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="env_fire" data-file="audio/FIRE.mp3">
+          <label for="env_fire">暖爐燒柴聲</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_env_fire" min="0" max="1" step="0.01" value="0.7">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="env_rain" data-file="audio/RAIN.mp3">
+          <label for="env_rain">下雨聲</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_env_rain" min="0" max="1" step="0.01" value="0.7">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="env_seawave" data-file="audio/SEAWAVE.mp3">
+          <label for="env_seawave">海浪聲</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_env_seawave" min="0" max="1" step="0.01" value="0.7">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 類別 3: Noise (複選) -->
+  <div class="category-section">
+    <div class="category-title">
+      類別 3：Noise
+      <span class="category-hint">可複選或全選</span>
+    </div>
+    <div class="track-grid">
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="noise_pink">
+          <label for="noise_pink">Pink Noise (粉紅噪音)</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_noise_pink" min="0" max="1" step="0.01" value="0.3">
+        </div>
+      </div>
+      <div class="track-card">
+        <div class="track-header">
+          <input type="checkbox" id="noise_brown">
+          <label for="noise_brown">Brown Noise (棕色噪音)</label>
+        </div>
+        <div class="volume-slider">
+          <span>音量</span>
+          <input type="range" id="vol_noise_brown" min="0" max="1" step="0.01" value="0.3">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分享、匯出與輸入還原專區 (已移至最下方) -->
+  <div class="share-section">
+    <div class="share-container">
+      <div class="category-title" style="margin:0;">✉️ 留言與分享音樂環境</div>
+      
+      <!-- 1. 留言輸入框 (100字以內) -->
+      <div class="input-group">
+        <label for="userMessage">新增心情留言 (100 字內)：</label>
+        <input type="text" id="userMessage" maxlength="100" placeholder="寫下現在的心情或搭配建議...">
+      </div>
+
+      <!-- 2. 產生 QR Code 與參數碼 -->
+      <button class="action-btn" onclick="generateShareData()">🔗 產生參數與 QR Code</button>
+
+      <div id="exportArea" style="display:none; flex-direction:column; gap:10px;">
+        <div class="input-group">
+          <label>匯出的音樂參數碼：</label>
+          <input type="text" id="exportCode" readonly onclick="this.select()">
+        </div>
+        <div id="qrcode-box"></div>
+      </div>
+
+      <hr style="border: 0.5px solid rgba(255,255,255,0.1); width: 100%; margin: 5px 0;">
+
+      <!-- 3. 輸入參數碼還原 -->
+      <div class="input-group">
+        <label for="importCode">輸入參數碼以還原音樂：</label>
+        <div class="row-group">
+          <input type="text" id="importCode" placeholder="貼上參數碼...">
+          <button class="preset-btn" onclick="restoreFromInput()">還原情境</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let audioCtx = null;
+  let isGlobalPlaying = false;
+  let isPulseEnabled = false;
+  let pulseAnimId = null;
+  let timerInterval = null;
+  let remainingSeconds = 0;
+  let qrcodeObj = null;
+
+  const iconPlay = '<path d="M8 5v14l11-7z"/>';
+  const iconStop = '<path d="M6 6h12v12H6z"/>';
+
+  const activeNodes = {
+    brainwave: null,
+    envAudios: {},
+    noisePink: null,
+    noiseBrown: null
+  };
+
+  function initAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  // --- 40Hz 脈衝 ---
+  const pulseBtn = document.getElementById('pulseBtn');
+  const pulseOverlay = document.getElementById('pulseOverlay');
+  const targetHz = 40;
+  const baseAlpha = 0.08;
+  const amplitude = 0.06;
+
+  function animatePulse(timestamp) {
+    if (!isPulseEnabled) return;
+    const timeInSeconds = timestamp / 1000;
+    const currentAlpha = baseAlpha + amplitude * Math.sin(2 * Math.PI * targetHz * timeInSeconds);
+    pulseOverlay.style.backgroundColor = `rgba(255, 255, 255, ${currentAlpha.toFixed(4)})`;
+    pulseAnimId = requestAnimationFrame(animatePulse);
+  }
+
+  pulseBtn.addEventListener('click', () => {
+    isPulseEnabled = !isPulseEnabled;
+    togglePulseState(isPulseEnabled);
+  });
+
+  function togglePulseState(enable) {
+    isPulseEnabled = enable;
+    if (isPulseEnabled) {
+      pulseBtn.classList.add('active');
+      pulseBtn.textContent = '💡 40Hz 視覺脈衝：開啟';
+      pulseOverlay.style.display = 'block';
+      if (!pulseAnimId) pulseAnimId = requestAnimationFrame(animatePulse);
+    } else {
+      pulseBtn.classList.remove('active');
+      pulseBtn.textContent = '💡 40Hz 視覺脈衝：關閉';
+      pulseOverlay.style.display = 'none';
+      if (pulseAnimId) {
+        cancelAnimationFrame(pulseAnimId);
+        pulseAnimId = null;
+      }
+    }
+  }
+
+  // --- 極簡參數收集與還原邏輯 ---
+  function getMinifiedState() {
+    const bw = document.querySelector('input[name="brainwave"]:checked').value;
+    let bwVol = 0.5;
+    if (bw === 'alpha') bwVol = document.getElementById('vol_alpha').value;
+    if (bw === 'theta') bwVol = document.getElementById('vol_theta').value;
+    if (bw === 'gamma') bwVol = document.getElementById('vol_gamma').value;
+
+    const envs = [];
+    envInputs.forEach(cb => {
+      if (cb.checked) {
+        const id = cb.id.replace('env_', '');
+        const vol = document.getElementById('vol_' + cb.id).value;
+        envs.push(`${id}:${vol}`);
+      }
+    });
+
+    return {
+      m: document.getElementById('userMessage').value.trim(),
+      p: isPulseEnabled ? 1 : 0,
+      b: bw,
+      bv: bwVol,
+      e: envs,
+      np: document.getElementById('noise_pink').checked ? document.getElementById('vol_noise_pink').value : 0,
+      nb: document.getElementById('noise_brown').checked ? document.getElementById('vol_noise_brown').value : 0
+    };
+  }
+
+  function applyMinifiedState(state) {
+    if (state.m) {
+      document.getElementById('msgText').textContent = state.m;
+      document.getElementById('messageDisplay').style.display = 'block';
+      document.getElementById('userMessage').value = state.m;
+    }
+
+    togglePulseState(state.p === 1);
+
+    if (state.b) {
+      const radio = document.querySelector(`input[name="brainwave"][value="${state.b}"]`);
+      if (radio) radio.checked = true;
+      if (state.b === 'alpha') document.getElementById('vol_alpha').value = state.bv || 0.5;
+      if (state.b === 'theta') document.getElementById('vol_theta').value = state.bv || 0.5;
+      if (state.b === 'gamma') document.getElementById('vol_gamma').value = state.bv || 0.5;
+    }
+
+    envInputs.forEach(cb => cb.checked = false);
+    if (state.e && Array.isArray(state.e)) {
+      state.e.forEach(item => {
+        const [id, vol] = item.split(':');
+        const cb = document.getElementById('env_' + id);
+        if (cb) {
+          cb.checked = true;
+          document.getElementById('vol_env_' + id).value = vol;
+        }
+      });
+    }
+
+    const pinkCb = document.getElementById('noise_pink');
+    pinkCb.checked = state.np > 0;
+    if (state.np > 0) document.getElementById('vol_noise_pink').value = state.np;
+
+    const brownCb = document.getElementById('noise_brown');
+    brownCb.checked = state.nb > 0;
+    if (state.nb > 0) document.getElementById('vol_noise_brown').value = state.nb;
+
+    if (isGlobalPlaying) {
+      startAllSelected();
+    }
+  }
+
+  function generateShareData() {
+    const minState = getMinifiedState();
+    const code = encodeURIComponent(JSON.stringify(minState));
+
+    const exportArea = document.getElementById('exportArea');
+    const exportCodeInput = document.getElementById('exportCode');
+    
+    exportArea.style.display = 'flex';
+    exportCodeInput.value = code;
+
+    const shareUrl = window.location.origin + window.location.pathname + '#d=' + code;
+
+    const qrBox = document.getElementById('qrcode-box');
+    qrBox.innerHTML = '';
+    qrcodeObj = new QRCode(qrBox, {
+      text: shareUrl,
+      width: 180,
+      height: 180,
+      correctLevel: QRCode.CorrectLevel.L
+    });
+  }
+
+  function restoreFromInput() {
+    const code = document.getElementById('importCode').value.trim();
+    if (!code) return alert('請先輸入參數碼！');
+    try {
+      const jsonStr = decodeURIComponent(code);
+      const state = JSON.parse(jsonStr);
+      applyMinifiedState(state);
+      alert('已成功還原音樂環境與留言！');
+    } catch (e) {
+      alert('無效的參數碼，請檢查是否複製完整。');
+    }
+  }
+
+  window.addEventListener('load', () => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#d=')) {
+      const code = hash.replace('#d=', '');
+      try {
+        const jsonStr = decodeURIComponent(code);
+        const state = JSON.parse(jsonStr);
+        applyMinifiedState(state);
+      } catch (e) {
+        console.error('URL 參數解析失敗', e);
+      }
+    }
+  });
+
+  // --- 主控開關與聲音控制 ---
+  const masterPlayBtn = document.getElementById('masterPlayBtn');
+  const btnIcon = document.getElementById('btnIcon');
+  const btnText = document.getElementById('btnText');
+
+  masterPlayBtn.addEventListener('click', () => {
+    initAudioContext();
+    isGlobalPlaying = !isGlobalPlaying;
+    updateGlobalState();
+  });
+
+  function updateGlobalState() {
+    if (isGlobalPlaying) {
+      btnIcon.innerHTML = iconStop;
+      btnText.textContent = 'Stop';
+      masterPlayBtn.style.backgroundColor = 'var(--stop-color)';
+      startAllSelected();
+      startTimerIfNeeded();
+    } else {
+      btnIcon.innerHTML = iconPlay;
+      btnText.textContent = 'Play';
+      masterPlayBtn.style.backgroundColor = 'var(--accent-color)';
+      stopAll();
+      clearTimer();
+    }
+  }
+
+  function startAllSelected() {
+    updateBrainwave();
+    updateEnvAudio();
+    updatePinkNoise();
+    updateBrownNoise();
+  }
+
+  function stopAll() {
+    stopBrainwave();
+    stopEnvAudio();
+    stopPinkNoise();
+    stopBrownNoise();
+  }
+
+  // --- 類別 1: 腦波 ---
+  function updateBrainwave() {
+    stopBrainwave();
+    if (!isGlobalPlaying) return;
+
+    const selected = document.querySelector('input[name="brainwave"]:checked').value;
+    if (selected === 'none') return;
+
+    const baseFreq = 200;
+    let beatFreq = 10;
+    let volInput = document.getElementById('vol_alpha');
+
+    if (selected === 'theta') {
+      beatFreq = 6;
+      volInput = document.getElementById('vol_theta');
+    } else if (selected === 'gamma') {
+      beatFreq = 40;
+      volInput = document.getElementById('vol_gamma');
+    }
+
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.value = parseFloat(volInput.value);
+
+    const merger = audioCtx.createChannelMerger(2);
+
+    const oscL = audioCtx.createOscillator();
+    oscL.type = 'sine';
+    oscL.frequency.value = baseFreq;
+    oscL.connect(merger, 0, 0);
+
+    const oscR = audioCtx.createOscillator();
+    oscR.type = 'sine';
+    oscR.frequency.value = baseFreq + beatFreq;
+    oscR.connect(merger, 0, 1);
+
+    merger.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
+
+    oscL.start();
+    oscR.start();
+
+    activeNodes.brainwave = { oscL, oscR, masterGain, volInput };
+  }
+
+  function stopBrainwave() {
+    if (activeNodes.brainwave) {
+      try {
+        activeNodes.brainwave.oscL.stop();
+        activeNodes.brainwave.oscR.stop();
+      } catch(e){}
+      activeNodes.brainwave = null;
+    }
+  }
+
+  document.querySelectorAll('input[name="brainwave"]').forEach(r => {
+    r.addEventListener('change', updateBrainwave);
+  });
+  document.getElementById('vol_alpha').addEventListener('input', (e) => {
+    if (activeNodes.brainwave && document.getElementById('wave_alpha').checked) {
+      activeNodes.brainwave.masterGain.gain.value = parseFloat(e.target.value);
+    }
+  });
+  document.getElementById('vol_theta').addEventListener('input', (e) => {
+    if (activeNodes.brainwave && document.getElementById('wave_theta').checked) {
+      activeNodes.brainwave.masterGain.gain.value = parseFloat(e.target.value);
+    }
+  });
+  document.getElementById('vol_gamma').addEventListener('input', (e) => {
+    if (activeNodes.brainwave && document.getElementById('wave_gamma').checked) {
+      activeNodes.brainwave.masterGain.gain.value = parseFloat(e.target.value);
+    }
+  });
+
+  // --- 類別 2: 環境音 ---
+  const envInputs = document.querySelectorAll('input[id^="env_"]');
+  envInputs.forEach(checkbox => {
+    checkbox.addEventListener('change', updateEnvAudio);
+    const volSlider = document.getElementById('vol_' + checkbox.id);
+    volSlider.addEventListener('input', (e) => {
+      if (activeNodes.envAudios[checkbox.id]) {
+        activeNodes.envAudios[checkbox.id].volume = parseFloat(e.target.value);
+      }
+    });
+  });
+
+  function updateEnvAudio() {
+    envInputs.forEach(cb => {
+      const id = cb.id;
+      const fileSrc = cb.getAttribute('data-file');
+      const volSlider = document.getElementById('vol_' + id);
+
+      if (cb.checked && isGlobalPlaying) {
+        if (!activeNodes.envAudios[id]) {
+          const audio = new Audio(fileSrc);
+          audio.loop = true;
+          audio.volume = parseFloat(volSlider.value);
+          audio.play();
+          activeNodes.envAudios[id] = audio;
+        }
+      } else {
+        if (activeNodes.envAudios[id]) {
+          activeNodes.envAudios[id].pause();
+          delete activeNodes.envAudios[id];
+        }
+      }
+    });
+  }
+
+  function stopEnvAudio() {
+    Object.keys(activeNodes.envAudios).forEach(id => {
+      activeNodes.envAudios[id].pause();
+    });
+    activeNodes.envAudios = {};
+  }
+
+  // --- 類別 3: Noise ---
+  const pinkCb = document.getElementById('noise_pink');
+  const pinkVol = document.getElementById('vol_noise_pink');
+
+  pinkCb.addEventListener('change', updatePinkNoise);
+  pinkVol.addEventListener('input', (e) => {
+    if (activeNodes.noisePink) {
+      activeNodes.noisePink.gainNode.gain.value = parseFloat(e.target.value);
+    }
+  });
+
+  function updatePinkNoise() {
+    stopPinkNoise();
+    if (!pinkCb.checked || !isGlobalPlaying) return;
+
+    const bufferSize = 4096;
+    const scriptNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+    scriptNode.onaudioprocess = function(e) {
+      const output = e.outputBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+        output[i] *= 0.11;
+        b6 = white * 0.115926;
+      }
+    };
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = parseFloat(pinkVol.value);
+
+    scriptNode.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    activeNodes.noisePink = { scriptNode, gainNode };
+  }
+
+  function stopPinkNoise() {
+    if (activeNodes.noisePink) {
+      activeNodes.noisePink.scriptNode.disconnect();
+      activeNodes.noisePink = null;
+    }
+  }
+
+  const brownCb = document.getElementById('noise_brown');
+  const brownVol = document.getElementById('vol_noise_brown');
+
+  brownCb.addEventListener('change', updateBrownNoise);
+  brownVol.addEventListener('input', (e) => {
+    if (activeNodes.noiseBrown) {
+      activeNodes.noiseBrown.gainNode.gain.value = parseFloat(e.target.value);
+    }
+  });
+
+  function updateBrownNoise() {
+    stopBrownNoise();
+    if (!brownCb.checked || !isGlobalPlaying) return;
+
+    const bufferSize = 4096;
+    const scriptNode = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+    let lastOutput = 0.0;
+
+    scriptNode.onaudioprocess = function(e) {
+      const output = e.outputBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOutput + (0.02 * white)) / 1.02;
+        lastOutput = output[i];
+        output[i] *= 3.5;
+      }
+    };
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = parseFloat(brownVol.value);
+
+    scriptNode.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    activeNodes.noiseBrown = { scriptNode, gainNode };
+  }
+
+  function stopBrownNoise() {
+    if (activeNodes.noiseBrown) {
+      activeNodes.noiseBrown.scriptNode.disconnect();
+      activeNodes.noiseBrown = null;
+    }
+  }
+
+  // --- 定時器功能 ---
+  const timerSelect = document.getElementById('timerSelect');
+  const timerCountdownDisplay = document.getElementById('timerCountdown');
+
+  function startTimerIfNeeded() {
+    clearTimer();
+    const minutes = parseInt(timerSelect.value);
+    if (minutes > 0 && isGlobalPlaying) {
+      remainingSeconds = minutes * 60;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        remainingSeconds--;
+        updateTimerDisplay();
+        if (remainingSeconds <= 0) {
+          isGlobalPlaying = false;
+          updateGlobalState();
+        }
+      }, 1000);
+    }
+  }
+
+  function clearTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    timerCountdownDisplay.textContent = '';
+  }
+
+  function updateTimerDisplay() {
+    const m = Math.floor(remainingSeconds / 60);
+    const s = remainingSeconds % 60;
+    timerCountdownDisplay.textContent = `(${m}:${s < 10 ? '0' : ''}${s})`;
+  }
+
+  timerSelect.addEventListener('change', () => {
+    if (isGlobalPlaying) {
+      startTimerIfNeeded();
+    }
+  });
+
+  // --- 預設情境 ---
+  function resetSelections() {
+    document.getElementById('wave_none').checked = true;
+    envInputs.forEach(cb => cb.checked = false);
+    pinkCb.checked = false;
+    brownCb.checked = false;
+  }
+
+  function setBgImage(filename) {
+    document.body.style.backgroundImage = `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('pic/${filename}')`;
+  }
+
+  function applyPreset(presetType) {
+    initAudioContext();
+    resetSelections();
+
+    if (presetType === 'focus') {
+      document.getElementById('wave_alpha').checked = true;
+      document.getElementById('vol_alpha').value = 0.4;
+      document.getElementById('env_bird').checked = true;
+      document.getElementById('vol_env_bird').value = 0.5;
+      pinkCb.checked = true;
+      pinkVol.value = 0.25;
+      setBgImage('study.jpg');
+    } else if (presetType === 'sleep') {
+      document.getElementById('wave_theta').checked = true;
+      document.getElementById('vol_theta').value = 0.3;
+      document.getElementById('env_rain').checked = true;
+      document.getElementById('vol_env_rain').value = 0.6;
+      document.getElementById('env_fire').checked = true;
+      document.getElementById('vol_env_fire').value = 0.4;
+      brownCb.checked = true;
+      brownVol.value = 0.35;
+      setBgImage('sleep.jpg');
+    } else if (presetType === 'relax') {
+      document.getElementById('wave_alpha').checked = true;
+      document.getElementById('vol_alpha').value = 0.45;
+      document.getElementById('env_wind').checked = true;
+      document.getElementById('vol_env_wind').value = 0.6;
+      document.getElementById('env_bird').checked = true;
+      document.getElementById('vol_env_bird').value = 0.4;
+      document.getElementById('env_seawave').checked = true;
+      document.getElementById('vol_env_seawave').value = 0.5;
+      setBgImage('forest.jpg');
+    }
+
+    if (isGlobalPlaying) {
+      startAllSelected();
+    }
+  }
+</script>
+
+</body>
+</html>
